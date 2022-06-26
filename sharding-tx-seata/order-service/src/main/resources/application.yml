@@ -1,0 +1,76 @@
+server:
+  port: 8082
+spring:
+  application:
+    name: order-service
+  cloud:
+    nacos:
+      discovery:
+        server-addr: 162.14.115.18:8848
+        namespace: 64ed9ca7-d705-4655-b4e4-f824e420a12a
+        group: test
+
+  #sharding-jdbc 水平分表规则配置
+  # 数据源名称，多数据源逗号隔开
+  shardingsphere:
+    datasource:
+      names: m1
+      m1:
+        type: com.zaxxer.hikari.HikariDataSource
+        driver-class-name: com.mysql.cj.jdbc.Driver
+        jdbc-url: jdbc:mysql://127.0.0.1:3307/sharding-tx-order?useUnicode=true&useSSL=false&characterEncoding=UTF-8&allowMultiQueries=true&serverTimezone=Asia/Shanghai
+        username: root
+        password: lhzlx
+
+  # 水平分表：tb_order_1/2/3，多个表进行分表时，依次在tables标签后写逻辑
+  # tb_order_1/2/3 为数据库中的事实表
+  # tb_order为编写SQL中操作的逻辑表，sharding-jdbc会自动根据策略操作事实表
+
+  # 配置节点分布情况
+    sharding:
+     tables:
+      tb_order:
+        actual-data-nodes: m1.tb_order_$->{1..3}
+        # 指定tb_order表的主键生成策略为SNOWFLAKE
+        key-generator.column: id
+        key-generator.type: SNOWFLAKE
+        # 指定tb_order表的分片策略，分片策略包括分片键和分片算法， tb_order_1/2/3 所有对3取余
+        table-strategy.inline.sharding-column: id
+        table-strategy.inline.algorithm-expression: tb_order_$->{id % 3+1}
+
+
+  # 打开sql输出日志
+    props:
+      sql:
+        show: true
+
+seata:
+  enabled: true
+  application-id: ${spring.application.name}
+  # 事务组的名称，对应service.vgroupMapping.default_tx_group=xxx中配置的default_tx_group
+  tx-service-group: default_tx_group
+  # 配置事务组与集群的对应关系
+  service:
+    vgroup-mapping:
+      # default_tx_group为事务组的名称，default为集群名称
+      default_tx_group: default
+    disable-global-transaction: false
+  registry:
+    type: nacos
+    nacos:
+      application: seata-server
+      server-addr: 162.14.115.18:8848
+      group: SEATA_GROUP
+      namespace: 64ed9ca7-d705-4655-b4e4-f824e420a12a
+      username: nacos
+      password: nacos
+      cluster: default
+  config:
+    type: nacos
+    nacos:
+      server-addr: 162.14.115.18:8848
+      group: SEATA_GROUP
+      namespace: 64ed9ca7-d705-4655-b4e4-f824e420a12a
+      username: nacos
+      password: nacos
+      data-id: seataServer.properties
